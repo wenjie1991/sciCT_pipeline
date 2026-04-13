@@ -238,11 +238,11 @@ nextflow run main.nf -profile singularity \
   --out_dir results
 ```
 
-If your references or data are outside the working directory, bind those filesystem roots into the container. The default bind path is `/varidata`.
+If your references or data are outside the working directory, bind those filesystem roots into the container. The default bind path is `./data` relative to the directory where you launch Nextflow.
 
 ```bash
 nextflow run main.nf -profile singularity \
-  --container_bind_paths /varidata \
+  --container_bind_paths ./data \
   --input_dir /path/to/fastq \
   --barcode_matrix /path/to/barcode_matrix.csv \
   --ref /varidata/research/projects/bbc/versioned_references/latest/data/hg38_gencode/indexes/bowtie2/hg38_gencode \
@@ -253,7 +253,7 @@ nextflow run main.nf -profile singularity \
 For multiple roots, provide a comma-separated list:
 
 ```bash
---container_bind_paths /varidata,/scratch,/home
+--container_bind_paths ./data,/scratch,/home
 ```
 
 ## Defaults
@@ -270,5 +270,5 @@ For multiple roots, provide a comma-separated list:
 - `nextflow` must be installed on the host system.
 - The Conda profile creates the software environment automatically from `envs/cuttag-preprocess.yml`.
 - The Singularity and Apptainer profiles use `containers/cuttag-preprocess.sif` by default.
-- Singularity and Apptainer bind `/varidata` by default; override with `--container_bind_paths` if needed.
+- Singularity and Apptainer bind `./data` from the launch directory by default; override with `--container_bind_paths` if needed.
 - Sample filtering is controlled by `--enable_sample_filter` and `--skip_patterns`.

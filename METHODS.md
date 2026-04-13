@@ -217,5 +217,5 @@ nextflow run main.nf -profile singularity \
 - The alignment step preserves the original high-memory setting (`256 GB`, `16 CPUs`, `18h`) but these can be changed in `nextflow.config`.
 - Intermediate files are published into subdirectories under `--out_dir`.
 - The Singularity and Apptainer profiles use `containers/cuttag-preprocess.sif` by default and can be overridden with `--singularity_image`.
-- The Singularity and Apptainer profiles bind `/varidata` by default so external HPC reference files are visible in the container. Override with `--container_bind_paths` if references or data are stored elsewhere.
+- The Singularity and Apptainer profiles bind `./data` from the Nextflow launch directory by default. Override with `--container_bind_paths` if references or data are stored elsewhere.
 - Sample-name filtering is configurable through `--enable_sample_filter` and `--skip_patterns`, but no samples are excluded unless patterns are provided explicitly.
