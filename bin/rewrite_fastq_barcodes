@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+project_dir="$(cd "${script_dir}/.." && pwd)"
+cpp_binary="${script_dir}/rewrite_fastq_barcodes_cpp"
+python_fallback="${script_dir}/rewrite_fastq_barcodes.py"
+cpp_source="${project_dir}/src/rewrite_fastq_barcodes.cpp"
+
+if [[ -x "${cpp_binary}" && ! "${cpp_source}" -nt "${cpp_binary}" ]]; then
+    exec "${cpp_binary}" "$@"
+fi
+
+if command -v g++ >/dev/null 2>&1 || command -v x86_64-conda-linux-gnu-c++ >/dev/null 2>&1 || [[ -n "${CXX:-}" ]]; then
+    "${project_dir}/tools/build_rewrite_fastq_barcodes.sh" >/dev/null 2>&1 || true
+fi
+
+if [[ -x "${cpp_binary}" ]]; then
+    exec "${cpp_binary}" "$@"
+fi
+
+exec "${python_fallback}" "$@"

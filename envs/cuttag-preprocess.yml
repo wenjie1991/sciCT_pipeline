@@ -1,0 +1,23 @@
+name: cuttag-preprocess
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.10
+  - gxx_linux-64=13
+  - pip
+  - git
+  - dos2unix
+  - pigz
+  - numpy
+  - pandas
+  - openpyxl
+  - cutadapt=4.3
+  - bowtie2=2.5.1
+  - samtools=1.20
+  - bedtools=2.31.1
+  - htslib=1.20
+  - ucsc-bedgraphtobigwig
+  - pip:
+      - git+https://github.com/mfitzgib/sciCTextract.git#egg=scictextract

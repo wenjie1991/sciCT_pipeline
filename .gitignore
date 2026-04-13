@@ -1,0 +1,12 @@
+bk/
+.nextflow/
+.nextflow.log*
+work/
+.nf_test/
+.demux_stub/
+.rewrite_check/
+.speed_test/
+bin/__pycache__/
+bin/*.pyc
+bin/rewrite_fastq_barcodes_cpp
+containers/cuttag-preprocess.sif

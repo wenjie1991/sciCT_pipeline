@@ -1,0 +1,42 @@
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.10
+
+%labels
+    Author OpenAI Codex
+    Description CUT&Tag / CoCnT preprocessing environment for Nextflow
+
+%files
+    envs/cuttag-preprocess-container.yml /opt/cuttag-preprocess.yml
+
+%post
+    export PATH=/usr/local/bin:/opt/conda/bin:$PATH
+
+    if command -v micromamba >/dev/null 2>&1; then
+        MAMBA_BIN="$(command -v micromamba)"
+    elif [ -x /usr/local/bin/micromamba ]; then
+        MAMBA_BIN=/usr/local/bin/micromamba
+    elif [ -x /opt/conda/bin/micromamba ]; then
+        MAMBA_BIN=/opt/conda/bin/micromamba
+    else
+        echo "micromamba was not found in the base image" >&2
+        exit 1
+    fi
+
+    export MAMBA_ROOT_PREFIX=/opt/conda
+    "${MAMBA_BIN}" create -y -n cuttag -f /opt/cuttag-preprocess.yml
+    "${MAMBA_BIN}" clean --all --yes
+
+    ln -sf /opt/conda/envs/cuttag/bin/python /usr/local/bin/python
+    ln -sf /opt/conda/envs/cuttag/bin/python /usr/local/bin/python3
+    ln -sf /opt/conda/envs/cuttag/bin/cutadapt /usr/local/bin/cutadapt
+    ln -sf /opt/conda/envs/cuttag/bin/bowtie2 /usr/local/bin/bowtie2
+    ln -sf /opt/conda/envs/cuttag/bin/samtools /usr/local/bin/samtools
+    ln -sf /opt/conda/envs/cuttag/bin/bedtools /usr/local/bin/bedtools
+    ln -sf /opt/conda/envs/cuttag/bin/bgzip /usr/local/bin/bgzip
+    ln -sf /opt/conda/envs/cuttag/bin/bedGraphToBigWig /usr/local/bin/bedGraphToBigWig
+
+%environment
+    export PATH=/opt/conda/envs/cuttag/bin:$PATH
+
+%runscript
+    exec "$@"
