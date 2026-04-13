@@ -84,6 +84,7 @@ For `demux` mode, the required inputs are:
 - `--umi1`
 - `--umi2`
 - `--demux_min_reads`
+- `--demux_swap_index_ends`
 
 The `--tn5_annot` input should be supplied as a CSV file.
 
@@ -92,21 +93,16 @@ Barcode rewriting is enabled by default and also requires:
 - `--barcode_matrix`: CSV with columns
   `PAGE-1-s7,PAGE-1-s5,PAGE-2-s7,PAGE-2-s5,Well-ID`
 
-If your FASTQ headers are already rewritten, set:
+For the current sciCUT&Tag data layout used in testing, the index reads are arranged as `I1 = i7 ... j7` and `I2 = j5 ... i5`, while `sciCTextract` expects `I1 = j7 ... i7` and `I2 = i5 ... j5`. The workflow therefore swaps the first and last 8 bases of `I1/I2` by default before demultiplexing. Disable this only for data already matching the native `sciCTextract` layout:
 
 ```bash
---skip_barcode_rewrite true
+--demux_swap_index_ends false
 ```
 
 ## Sample filtering options
 
 The filename filter is enabled by default and excludes sample names containing:
-
-- `PosCtrl`
-- `NegCtrl`
-- `Fiducial`
-- `PBS`
-- `Undetermined`
+By default, no filename patterns are excluded.
 
 Disable filename-based filtering entirely:
 
@@ -158,17 +154,6 @@ nextflow run main.nf -profile slurm \
   --out_dir results
 ```
 
-Skip barcode rewriting:
-
-```bash
-nextflow run main.nf \
-  --input_dir /path/to/already_rewritten_fastq \
-  --skip_barcode_rewrite true \
-  --ref /path/to/bowtie2/index_basename \
-  --chrom_sizes /path/to/genome.chrom.sizes \
-  --out_dir results
-```
-
 Run on SLURM with Conda:
 
 ```bash
@@ -193,7 +178,7 @@ nextflow run main.nf -profile slurm,conda \
   --umi1 /path/to/sample_I1.fastq.gz \
   --umi2 /path/to/sample_I2.fastq.gz \
   --demux_min_reads 10000 \
-  --skip_barcode_rewrite true \
+  --barcode_matrix /path/to/barcode_matrix.csv \
   --ref /path/to/bowtie2/index_basename \
   --chrom_sizes /path/to/genome.chrom.sizes \
   --out_dir results
@@ -227,9 +212,10 @@ nextflow run main.nf -profile singularity \
 - The pipeline keeps the same adapter sequence and Bowtie2 arguments used in the existing shell script.
 - The merged workflow can run either from already demultiplexed paired FASTQs or from raw sciCUT&Tag demultiplexing inputs.
 - The `demux` mode uses a generic FASTQ header normalizer instead of the previous `ModifyHeader.sh` logic that depended on a specific instrument prefix.
-- The barcode rewrite step now prefers a compiled C++ implementation for speed, while preserving the original Python code as a fallback.
+- The `demux` handoff flattens the `sciCTextract` file list and matches `*_R1.fq.gz` and `*_R2.fq.gz` outputs explicitly before downstream processing.
+- The barcode rewrite step is a required part of the workflow and prefers a compiled C++ implementation for speed, while preserving the original Python code as a fallback.
 - The alignment step preserves the original high-memory setting (`256 GB`, `16 CPUs`, `18h`) but these can be changed in `nextflow.config`.
 - Intermediate files are published into subdirectories under `--out_dir`.
 - The Singularity and Apptainer profiles use `containers/cuttag-preprocess.sif` by default and can be overridden with `--singularity_image`.
 - The Singularity and Apptainer profiles bind `/varidata` by default so external HPC reference files are visible in the container. Override with `--container_bind_paths` if references or data are stored elsewhere.
-- Sample-name filtering is configurable through `--enable_sample_filter` and `--skip_patterns`.
+- Sample-name filtering is configurable through `--enable_sample_filter` and `--skip_patterns`, but no samples are excluded unless patterns are provided explicitly.

@@ -9,12 +9,12 @@ params.fastq2 = params.fastq2 ?: null
 params.umi1 = params.umi1 ?: null
 params.umi2 = params.umi2 ?: null
 params.demux_min_reads = params.demux_min_reads ?: 10000
+params.demux_swap_index_ends = params.demux_swap_index_ends == null ? true : params.demux_swap_index_ends
 params.out_dir = params.out_dir ?: 'results'
 params.barcode_matrix = params.barcode_matrix ?: null
 params.barcode_suffix = params.barcode_suffix ?: ''
-params.skip_barcode_rewrite = params.skip_barcode_rewrite ?: false
 params.enable_sample_filter = params.enable_sample_filter == null ? true : params.enable_sample_filter
-params.skip_patterns = params.skip_patterns ?: ['PosCtrl', 'NegCtrl', 'Fiducial', 'PBS', 'Undetermined']
+params.skip_patterns = params.skip_patterns ?: []
 params.adapter_seq = params.adapter_seq ?: 'CTGTCTCTTATACACATCT'
 params.ref = params.ref ?: null
 params.chrom_sizes = params.chrom_sizes ?: null
@@ -25,8 +25,8 @@ if (!validInputModes.contains(params.input_mode)) {
     error "Unsupported --input_mode '${params.input_mode}'. Valid modes: ${validInputModes.join(', ')}"
 }
 
-if (!params.skip_barcode_rewrite && !params.barcode_matrix) {
-    error "Missing required parameter: --barcode_matrix (or set --skip_barcode_rewrite true)"
+if (!params.barcode_matrix) {
+    error "Missing required parameter: --barcode_matrix"
 }
 
 if (params.input_mode == 'paired_fastq' && !params.input_dir) {
@@ -65,7 +65,7 @@ def normalizePatternList(patterns) {
 
 def skipPatternList = normalizePatternList(params.skip_patterns)
 def skipRegex = skipPatternList ? skipPatternList.collect { java.util.regex.Pattern.quote(it) }.join('|') : null
-def barcodeMatrixFile = params.skip_barcode_rewrite ? null : file(params.barcode_matrix, checkIfExists: true)
+def barcodeMatrixFile = file(params.barcode_matrix, checkIfExists: true)
 
 process PROCESS_PRIMER_ANNOT {
     tag "${primer_annot.simpleName}"
@@ -117,13 +117,14 @@ process PROCESS_DEMUX_FASTQ {
 
     input:
     tuple val(idx), path(fastq)
+    path helper_script
 
     output:
     tuple val(idx), path("${fastq.simpleName}.mod.fastq.gz")
 
     script:
     """
-    modify_scict_header.sh ${fastq} ${fastq.simpleName}.mod.fastq.gz
+    bash ${helper_script} ${fastq} ${fastq.simpleName}.mod.fastq.gz ${params.demux_swap_index_ends}
     """
 }
 
@@ -353,21 +354,22 @@ workflow {
             tuple(2, file(params.umi1, checkIfExists: true)),
             tuple(3, file(params.umi2, checkIfExists: true))
         )
+        demux_helper_script = Channel.value(file("${projectDir}/bin/modify_scict_header.sh", checkIfExists: true))
 
         primer_annot_out = PROCESS_PRIMER_ANNOT(primer_annot_ch)
         tn5_annot_out = PROCESS_TN5_ANNOT(tn5_annot_ch)
 
-        ordered_fastqs = PROCESS_DEMUX_FASTQ(raw_demux_fastqs)
+        ordered_fastqs = PROCESS_DEMUX_FASTQ(raw_demux_fastqs, demux_helper_script)
             .toList()
             .map { items -> items.sort { a, b -> a[0] <=> b[0] } }
             .map { items -> items.collect { it[1] } }
 
         demux_fastqs = RUN_DEMUX(primer_annot_out, tn5_annot_out, ordered_fastqs)
+            .flatten()
 
         source_fastq_pairs = demux_fastqs
-            .filter { f -> !(f.name =~ /(?i)Undetermined/) }
             .map { f ->
-                def m = (f.baseName =~ /^(.+)_R([12])$/)
+                def m = (f.name =~ /^(.+)_R([12])\.fq\.gz$/)
                 assert m : "Unexpected demux filename: ${f.name}"
                 tuple(m[0][1], m[0][2] as int, f)
             }
@@ -403,28 +405,24 @@ workflow {
             }
     }
 
-    if (params.skip_barcode_rewrite) {
-        rewritten_fastq = source_fastq_pairs
-    } else {
-        rewrite_reads = source_fastq_pairs
-            .flatMap { row ->
-                def sample_id = row[0]
-                def r1 = row[1]
-                def r2 = row[2]
-                [
-                    tuple(sample_id, 'R1', r1),
-                    tuple(sample_id, 'R2', r2)
-                ]
-            }
+    rewrite_reads = source_fastq_pairs
+        .flatMap { row ->
+            def sample_id = row[0]
+            def r1 = row[1]
+            def r2 = row[2]
+            [
+                tuple(sample_id, 'R1', r1),
+                tuple(sample_id, 'R2', r2)
+            ]
+        }
 
-        rewritten_fastq = REWRITE_BARCODES(rewrite_reads, barcodeMatrixFile)
-            .groupTuple(by: 0)
-            .map { sample_id, read_labels, files ->
-                def read_map = [:]
-                read_labels.eachWithIndex { label, idx -> read_map[label] = files[idx] }
-                tuple(sample_id, read_map['R1'], read_map['R2'])
-            }
-    }
+    rewritten_fastq = REWRITE_BARCODES(rewrite_reads, barcodeMatrixFile)
+        .groupTuple(by: 0)
+        .map { sample_id, read_labels, files ->
+            def read_map = [:]
+            read_labels.eachWithIndex { label, idx -> read_map[label] = files[idx] }
+            tuple(sample_id, read_map['R1'], read_map['R2'])
+        }
 
     trimmed = rewritten_fastq | TRIM_ADAPTERS
     aligned = trimmed | ALIGN_READS

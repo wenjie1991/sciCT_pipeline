@@ -1,6 +1,6 @@
-# CoCnT / CUT&Tag Preprocessing Pipeline
+# CoCUT&Tag Preprocessing Pipeline
 
-This repository contains a Nextflow pipeline for sequencing preprocessing steps used in CoCnT / CUT&Tag analysis.
+This repository contains a Nextflow pipeline for sequencing preprocessing steps used in CoCUT&Tag analysis.
 
 The workflow supports two input modes:
 
@@ -9,20 +9,13 @@ The workflow supports two input modes:
 
 The pipeline covers:
 
+- Demultiplexing of FASTQs using the provided index annotation tables
 - barcode correction / FASTQ header rewriting using a Well-ID matrix
 - adapter trimming with Cutadapt
 - paired-end alignment with Bowtie2
 - SAM to BAM conversion
 - BAM to compressed BED fragment generation
 - normalized BigWig generation
-
-## Source Code Mapped Into the Pipeline
-
-The workflow was derived from:
-
-- `alignment_driver_sciCnT_well-ID_bigmem.sh`
-- `align_and_process_sciCnT_well-ID_bigmem.sh`
-- `CoCnT_Rewrite_Fastq_Barcodes_101725.ipynb`
 
 ## Main Files
 
@@ -72,37 +65,65 @@ Required parameters:
 
 For `demux` mode, use these instead of `--input_dir`:
 
-- `--primer_annot`
-- `--tn5_annot`
-- `--fastq1`
-- `--fastq2`
-- `--umi1`
-- `--umi2`
-- `--demux_min_reads`
+- `--primer_annot`: Primer annotation file.
+- `--tn5_annot`: Tn5 barcode annotation file.
+- `--fastq1`: The R1 FASTQ file
+- `--fastq2`: The R2 FASTQ file
+- `--umi1`: The I1 FASTQ file
+- `--umi2`: The I2 FASTQ file
+- `--demux_min_reads`: Minimum total reads for a sample to be retained after demultiplexing, default `10000`.
+- `--demux_swap_index_ends`: swap the first and last 8 bases of `I1/I2` before demultiplexing, default `true`.
 
-The `--tn5_annot` input should be provided as a CSV file.
+Both annotation files are required for `demux` mode.
 
-Optional barcode rewriting input:
+For the current sciCUT&Tag test data, the index reads are arranged as:
+
+- `I1`: `i7 ... j7`
+- `I2`: `j5 ... i5`
+
+while `sciCTextract` expects:
+
+- `I1`: `j7 ... i7`
+- `I2`: `i5 ... j5`
+
+The pipeline therefore swaps the first and last 8 bases of each index read by default in `demux` mode. Disable this only if your run already matches the native `sciCTextract` layout:
+
+```bash
+--demux_swap_index_ends false
+```
+
+Primer annotation required columns:
+
+- `Sample` or `ID`
+- `i7_index_seq`
+- `i5_index_seq`
+
+The preprocessing step converts this to:
+
+- `ID`
+- `i7_index_seq`
+- `i5_index_seq`
+- `i7_index_id`
+- `i5_index_id`
+
+Tn5 annotation required columns:
+
+- `Sample Name`
+- `Tn5_s7`
+- `Tn5_s7_seq`
+- `Tn5_s5`
+- `Tn5_s5_seq`
+
+Barcode rewriting input:
 
 - `--barcode_matrix`: CSV with columns `PAGE-1-s7,PAGE-1-s5,PAGE-2-s7,PAGE-2-s5,Well-ID`
 
-If reads were already rewritten, disable that step with:
+## Sample Filtering (Optinal remove in the future?)
 
-```bash
---skip_barcode_rewrite true
-```
-
-## Sample Filtering
 
 Filename-based sample filtering is configurable.
 
-Default excluded patterns:
-
-- `PosCtrl`
-- `NegCtrl`
-- `Fiducial`
-- `PBS`
-- `Undetermined`
+By default, no samples are excluded by filename.
 
 Disable sample filtering completely:
 
@@ -156,7 +177,7 @@ nextflow run main.nf -profile slurm,conda \
   --umi1 /path/to/sample_I1.fastq.gz \
   --umi2 /path/to/sample_I2.fastq.gz \
   --demux_min_reads 10000 \
-  --skip_barcode_rewrite true \
+  --barcode_matrix /path/to/barcode_matrix.csv \
   --ref /path/to/bowtie2/index_basename \
   --chrom_sizes /path/to/genome.chrom.sizes \
   --out_dir results
@@ -237,8 +258,10 @@ For multiple roots, provide a comma-separated list:
 
 ## Defaults
 
-- sample-name filtering is enabled by default and excludes `PosCtrl`, `NegCtrl`, `Fiducial`, `PBS`, and `Undetermined`
+- sample-name filtering is available but no filename patterns are excluded unless `--skip_patterns` is provided
 - demux mode keeps only samples with total reads greater than `--demux_min_reads`, default `10000`
+- demux mode swaps the first and last 8 bases of `I1/I2` by default before calling `sciCTextract`
+- barcode rewriting is always applied and requires `--barcode_matrix`
 - adapter sequence defaults to `CTGTCTCTTATACACATCT`
 - alignment resources default to `16 CPUs`, `256 GB`, and `18h`
 
