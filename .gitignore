@@ -1,3 +1,10 @@
+index_files/*.csv
+index_files/*.xlsx
+raw_data/*.gz
+.nextflow/*
+.nextflow.log*
+work/*
+results/*
 bk/
 .nextflow/
 .nextflow.log*
