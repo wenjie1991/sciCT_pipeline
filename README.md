@@ -20,16 +20,13 @@ The pipeline covers:
 ## Main Files
 
 - `main.nf`: main Nextflow workflow
-- `nextflow.config`: runtime profiles and resource defaults
+- `nextflow.config.temp`: template runtime profiles and resource defaults, please copy to `nextflow.config` and edit as needed
 - `bin/rewrite_fastq_barcodes`: wrapper that prefers the compiled barcode-rewrite binary
 - `bin/rewrite_fastq_barcodes.py`: barcode rewrite helper extracted from the notebook
 - `bin/modify_scict_header.sh`: generic header normalizer used for sciCT demultiplexing mode
 - `src/rewrite_fastq_barcodes.cpp`: fast C++ implementation of barcode rewriting
 - `tools/build_rewrite_fastq_barcodes.sh`: build script for the C++ binary
 - `envs/cuttag-preprocess.yml`: Conda environment definition
-- `envs/cuttag-preprocess-container.yml`: lighter Conda environment used inside the Singularity/Apptainer image
-- `containers/cuttag-preprocess.def`: Singularity/Apptainer definition file
-- `containers/cuttag-preprocess.sif`: default Singularity image path expected by the config
 - `METHODS.md`: extended workflow notes and examples
 
 ## Faster Barcode Rewriting
@@ -183,79 +180,6 @@ nextflow run main.nf -profile slurm,conda \
   --out_dir results
 ```
 
-### Singularity / Apptainer
-
-Build the image from the included definition file:
-
-```bash
-containers/build_singularity_image.sh
-```
-
-On a local Linux machine where you have sudo privileges, the helper runs:
-
-```bash
-sudo singularity build containers/cuttag-preprocess.sif containers/cuttag-preprocess.def
-```
-
-If you use Apptainer instead:
-
-```bash
-sudo apptainer build containers/cuttag-preprocess.sif containers/cuttag-preprocess.def
-```
-
-If you cannot build locally, use a remote builder or ask your HPC admins to build it:
-
-```bash
-singularity build --remote containers/cuttag-preprocess.sif containers/cuttag-preprocess.def
-```
-
-Equivalent helper command:
-
-```bash
-containers/build_singularity_image.sh remote
-```
-
-Then run:
-
-```bash
-nextflow run main.nf -profile singularity \
-  --input_dir /path/to/fastq \
-  --barcode_matrix /path/to/barcode_matrix.csv \
-  --ref /path/to/bowtie2/index_basename \
-  --chrom_sizes /path/to/genome.chrom.sizes \
-  --out_dir results
-```
-
-To use a different image location:
-
-```bash
-nextflow run main.nf -profile singularity \
-  --singularity_image /path/to/container.sif \
-  --input_dir /path/to/fastq \
-  --barcode_matrix /path/to/barcode_matrix.csv \
-  --ref /path/to/bowtie2/index_basename \
-  --chrom_sizes /path/to/genome.chrom.sizes \
-  --out_dir results
-```
-
-If your references or data are outside the working directory, bind those filesystem roots into the container. The default bind path is `./data` relative to the directory where you launch Nextflow.
-
-```bash
-nextflow run main.nf -profile singularity \
-  --container_bind_paths ./data \
-  --input_dir /path/to/fastq \
-  --barcode_matrix /path/to/barcode_matrix.csv \
-  --ref /varidata/research/projects/bbc/versioned_references/latest/data/hg38_gencode/indexes/bowtie2/hg38_gencode \
-  --chrom_sizes /varidata/research/projects/bbc/versioned_references/2024-10-31_10.56.03_v17/data/hg38_gencode/sequence/hg38_gencode.fa.fai \
-  --out_dir results
-```
-
-For multiple roots, provide a comma-separated list:
-
-```bash
---container_bind_paths ./data,/scratch,/home
-```
-
 ## Defaults
 
 - sample-name filtering is available but no filename patterns are excluded unless `--skip_patterns` is provided
@@ -269,6 +193,4 @@ For multiple roots, provide a comma-separated list:
 
 - `nextflow` must be installed on the host system.
 - The Conda profile creates the software environment automatically from `envs/cuttag-preprocess.yml`.
-- The Singularity and Apptainer profiles use `containers/cuttag-preprocess.sif` by default.
-- Singularity and Apptainer bind `./data` from the launch directory by default; override with `--container_bind_paths` if needed.
 - Sample filtering is controlled by `--enable_sample_filter` and `--skip_patterns`.

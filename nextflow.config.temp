@@ -29,10 +29,6 @@ params {
     chrom_sizes = null
     publish_mode = 'copy'
     conda_env = "${projectDir}/envs/cuttag-preprocess.yml"
-    singularity_image = "${projectDir}/containers/cuttag-preprocess.sif"
-    // Bind the launch directory's data/ tree by default so local references,
-    // annotations, and test assets are visible inside Singularity/Apptainer.
-    container_bind_paths = "${launchDir}/data"
 }
 
 process {
@@ -68,30 +64,11 @@ profiles {
 
     slurm {
         process.executor = 'slurm'
-        singularity.enabled = false
         conda.enabled = false
     }
 
     conda {
         conda.enabled = true
         process.conda = params.conda_env
-    }
-
-    singularity {
-        singularity.enabled = true
-        apptainer.enabled = false
-        singularity.autoMounts = true
-        // Additional roots can be supplied with --container_bind_paths.
-        singularity.runOptions = "--bind ${params.container_bind_paths}"
-        process.container = params.singularity_image
-    }
-
-    apptainer {
-        apptainer.enabled = true
-        singularity.enabled = false
-        apptainer.autoMounts = true
-        // Additional roots can be supplied with --container_bind_paths.
-        apptainer.runOptions = "--bind ${params.container_bind_paths}"
-        process.container = params.singularity_image
     }
 }

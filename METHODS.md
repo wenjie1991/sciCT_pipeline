@@ -24,8 +24,6 @@ The merged workflow supports two input modes:
 - `src/rewrite_fastq_barcodes.cpp`: fast C++ implementation for barcode rewriting.
 - `tools/build_rewrite_fastq_barcodes.sh`: build script for the C++ binary.
 - `envs/cuttag-preprocess.yml`: Conda environment for all required tools.
-- `containers/cuttag-preprocess.sif`: default Singularity/Apptainer image path used by the config.
-- `containers/cuttag-preprocess.def`: definition file used to build the Singularity/Apptainer image.
 
 ## Required software
 
@@ -43,30 +41,6 @@ For faster barcode rewriting, build the compiled helper once:
 ```
 
 The wrapper used by Nextflow prefers the compiled binary and falls back to Python only if the binary is unavailable.
-
-If you use `singularity` or `apptainer`, the default image path is `containers/cuttag-preprocess.sif`.
-
-You can build that image from the repository with:
-
-```bash
-containers/build_singularity_image.sh
-```
-
-or manually on a local Linux machine with root or sudo privileges:
-
-```bash
-sudo singularity build containers/cuttag-preprocess.sif containers/cuttag-preprocess.def
-```
-
-That image should contain:
-
-- `python3`
-- `cutadapt`
-- `bowtie2`
-- `samtools`
-- `bedtools`
-- `bgzip`
-- `bedGraphToBigWig`
 
 ## Required inputs
 
@@ -184,29 +158,6 @@ nextflow run main.nf -profile slurm,conda \
   --out_dir results
 ```
 
-Run with Singularity or Apptainer:
-
-```bash
-nextflow run main.nf -profile singularity \
-  --input_dir /path/to/fastq \
-  --barcode_matrix /path/to/barcode_matrix.csv \
-  --ref /path/to/bowtie2/index_basename \
-  --chrom_sizes /path/to/genome.chrom.sizes \
-  --out_dir results
-```
-
-Override the default Singularity image location if needed:
-
-```bash
-nextflow run main.nf -profile singularity \
-  --singularity_image /path/to/container.sif \
-  --input_dir /path/to/fastq \
-  --barcode_matrix /path/to/barcode_matrix.csv \
-  --ref /path/to/bowtie2/index_basename \
-  --chrom_sizes /path/to/genome.chrom.sizes \
-  --out_dir results
-```
-
 ## Notes
 
 - The pipeline keeps the same adapter sequence and Bowtie2 arguments used in the existing shell script.
@@ -216,6 +167,4 @@ nextflow run main.nf -profile singularity \
 - The barcode rewrite step is a required part of the workflow and prefers a compiled C++ implementation for speed, while preserving the original Python code as a fallback.
 - The alignment step preserves the original high-memory setting (`256 GB`, `16 CPUs`, `18h`) but these can be changed in `nextflow.config`.
 - Intermediate files are published into subdirectories under `--out_dir`.
-- The Singularity and Apptainer profiles use `containers/cuttag-preprocess.sif` by default and can be overridden with `--singularity_image`.
-- The Singularity and Apptainer profiles bind `./data` from the Nextflow launch directory by default. Override with `--container_bind_paths` if references or data are stored elsewhere.
 - Sample-name filtering is configurable through `--enable_sample_filter` and `--skip_patterns`, but no samples are excluded unless patterns are provided explicitly.
