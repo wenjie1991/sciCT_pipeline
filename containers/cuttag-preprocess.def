@@ -2,7 +2,6 @@ Bootstrap: docker
 From: mambaorg/micromamba:1.5.10
 
 %labels
-    Author OpenAI Codex
     Description CUT&Tag / CoCnT preprocessing environment for Nextflow
 
 %files
