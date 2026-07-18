@@ -115,6 +115,22 @@ Barcode rewriting input:
 
 - `--barcode_matrix`: CSV with columns `PAGE-1-s7,PAGE-1-s5,PAGE-2-s7,PAGE-2-s5,Well-ID`
 
+## Barcode Rewriting
+
+By default the pipeline rewrites FASTQ headers, replacing the `(s7, s5)` barcode
+pair with the corresponding `Well-ID` from `--barcode_matrix`.
+
+If your FASTQ headers already carry the rewritten Well-ID barcodes, skip this
+step:
+
+```bash
+--enable_barcode_rewrite false
+```
+
+When barcode rewriting is disabled, `--barcode_matrix` is not required and the
+input FASTQs are passed straight to adapter trimming. This works in both
+`paired_fastq` and `demux` input modes.
+
 ## Sample Filtering (Optinal remove in the future?)
 
 
@@ -185,7 +201,7 @@ nextflow run main.nf -profile slurm,conda \
 - sample-name filtering is available but no filename patterns are excluded unless `--skip_patterns` is provided
 - demux mode keeps only samples with total reads greater than `--demux_min_reads`, default `10000`
 - demux mode swaps the first and last 8 bases of `I1/I2` by default before calling `sciCTextract`
-- barcode rewriting is always applied and requires `--barcode_matrix`
+- barcode rewriting is applied by default and requires `--barcode_matrix`; disable it with `--enable_barcode_rewrite false` when headers are already rewritten
 - adapter sequence defaults to `CTGTCTCTTATACACATCT`
 - alignment resources default to `16 CPUs`, `256 GB`, and `18h`
 

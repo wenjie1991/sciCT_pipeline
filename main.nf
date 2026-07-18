@@ -15,6 +15,9 @@ params.demux_swap_index_ends = params.demux_swap_index_ends == null ? true : par
 params.out_dir = params.out_dir ?: 'results'
 params.barcode_matrix = params.barcode_matrix ?: null
 params.barcode_suffix = params.barcode_suffix ?: ''
+// When false, skip the barcode-rewrite step because the input FASTQ headers
+// already carry the rewritten Well-ID barcodes.
+params.enable_barcode_rewrite = params.enable_barcode_rewrite == null ? true : params.enable_barcode_rewrite
 params.enable_sample_filter = params.enable_sample_filter == null ? true : params.enable_sample_filter
 params.skip_patterns = params.skip_patterns ?: []
 params.adapter_seq = params.adapter_seq ?: 'CTGTCTCTTATACACATCT'
@@ -27,8 +30,8 @@ if (!validInputModes.contains(params.input_mode)) {
     error "Unsupported --input_mode '${params.input_mode}'. Valid modes: ${validInputModes.join(', ')}"
 }
 
-if (!params.barcode_matrix) {
-    error "Missing required parameter: --barcode_matrix"
+if (params.enable_barcode_rewrite && !params.barcode_matrix) {
+    error "Missing required parameter for barcode rewriting: --barcode_matrix (or set --enable_barcode_rewrite false if the FASTQ headers are already rewritten)"
 }
 
 if (params.input_mode == 'paired_fastq' && !params.input_dir) {
@@ -67,7 +70,7 @@ def normalizePatternList(patterns) {
 
 def skipPatternList = normalizePatternList(params.skip_patterns)
 def skipRegex = skipPatternList ? skipPatternList.collect { java.util.regex.Pattern.quote(it) }.join('|') : null
-def barcodeMatrixFile = file(params.barcode_matrix, checkIfExists: true)
+def barcodeMatrixFile = params.enable_barcode_rewrite ? file(params.barcode_matrix, checkIfExists: true) : null
 
 process PROCESS_PRIMER_ANNOT {
     tag "${primer_annot.simpleName}"
@@ -408,24 +411,29 @@ workflow {
             }
     }
 
-    rewrite_reads = source_fastq_pairs
-        .flatMap { row ->
-            def sample_id = row[0]
-            def r1 = row[1]
-            def r2 = row[2]
-            [
-                tuple(sample_id, 'R1', r1),
-                tuple(sample_id, 'R2', r2)
-            ]
-        }
+    if (params.enable_barcode_rewrite) {
+        rewrite_reads = source_fastq_pairs
+            .flatMap { row ->
+                def sample_id = row[0]
+                def r1 = row[1]
+                def r2 = row[2]
+                [
+                    tuple(sample_id, 'R1', r1),
+                    tuple(sample_id, 'R2', r2)
+                ]
+            }
 
-    rewritten_fastq = REWRITE_BARCODES(rewrite_reads, barcodeMatrixFile)
-        .groupTuple(by: 0)
-        .map { sample_id, read_labels, files ->
-            def read_map = [:]
-            read_labels.eachWithIndex { label, idx -> read_map[label] = files[idx] }
-            tuple(sample_id, read_map['R1'], read_map['R2'])
-        }
+        rewritten_fastq = REWRITE_BARCODES(rewrite_reads, barcodeMatrixFile)
+            .groupTuple(by: 0)
+            .map { sample_id, read_labels, files ->
+                def read_map = [:]
+                read_labels.eachWithIndex { label, idx -> read_map[label] = files[idx] }
+                tuple(sample_id, read_map['R1'], read_map['R2'])
+            }
+    } else {
+        // FASTQ headers already carry rewritten Well-ID barcodes; pass through.
+        rewritten_fastq = source_fastq_pairs
+    }
 
     trimmed = rewritten_fastq | TRIM_ADAPTERS
     aligned = trimmed | ALIGN_READS

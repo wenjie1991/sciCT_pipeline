@@ -22,6 +22,9 @@ params {
     out_dir = 'results'
     barcode_matrix = null
     barcode_suffix = ''
+    // Set to false when the input FASTQ headers already carry the rewritten
+    // Well-ID barcodes; --barcode_matrix is then not required.
+    enable_barcode_rewrite = true
     enable_sample_filter = true
     skip_patterns = []
     adapter_seq = 'CTGTCTCTTATACACATCT'

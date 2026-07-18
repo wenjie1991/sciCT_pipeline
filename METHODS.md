@@ -67,6 +67,10 @@ Barcode rewriting is enabled by default and also requires:
 - `--barcode_matrix`: CSV with columns
   `PAGE-1-s7,PAGE-1-s5,PAGE-2-s7,PAGE-2-s5,Well-ID`
 
+If the input FASTQ headers already carry the rewritten Well-ID barcodes, skip
+this step with `--enable_barcode_rewrite false`; `--barcode_matrix` is then not
+required and the reads are passed straight to adapter trimming.
+
 For the current sciCUT&Tag data layout used in testing, the index reads are arranged as `I1 = i7 ... j7` and `I2 = j5 ... i5`, while `sciCTextract` expects `I1 = j7 ... i7` and `I2 = i5 ... j5`. The workflow therefore swaps the first and last 8 bases of `I1/I2` by default before demultiplexing. Disable this only for data already matching the native `sciCTextract` layout:
 
 ```bash
@@ -164,7 +168,7 @@ nextflow run main.nf -profile slurm,conda \
 - The merged workflow can run either from already demultiplexed paired FASTQs or from raw sciCUT&Tag demultiplexing inputs.
 - The `demux` mode uses a generic FASTQ header normalizer instead of the previous `ModifyHeader.sh` logic that depended on a specific instrument prefix.
 - The `demux` handoff flattens the `sciCTextract` file list and matches `*_R1.fq.gz` and `*_R2.fq.gz` outputs explicitly before downstream processing.
-- The barcode rewrite step is a required part of the workflow and prefers a compiled C++ implementation for speed, while preserving the original Python code as a fallback.
+- The barcode rewrite step is enabled by default (skippable with `--enable_barcode_rewrite false` when headers are already rewritten) and prefers a compiled C++ implementation for speed, while preserving the original Python code as a fallback.
 - The alignment step preserves the original high-memory setting (`256 GB`, `16 CPUs`, `18h`) but these can be changed in `nextflow.config`.
 - Intermediate files are published into subdirectories under `--out_dir`.
 - Sample-name filtering is configurable through `--enable_sample_filter` and `--skip_patterns`, but no samples are excluded unless patterns are provided explicitly.
